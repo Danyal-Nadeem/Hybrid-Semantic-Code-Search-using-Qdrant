@@ -18,6 +18,7 @@ import FAQModal from './components/FAQModal';
 
 // Page Views
 import AuthPage from './pages/AuthPage';
+import LandingPage from './pages/LandingPage';
 import DashboardView from './pages/DashboardView';
 import SearchView from './pages/SearchView';
 import AnalyticsView from './pages/AnalyticsView';
@@ -29,6 +30,7 @@ const App = () => {
   const [activeView, setActiveView] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isFAQModalOpen, setIsFAQModalOpen] = useState(false);
+  const [showLanding, setShowLanding] = useState(true);
 
   // Hooks
   const { modalConfig, requestConfirm, requestAlert, handleClose, handleConfirm } = useConfirm();
@@ -43,7 +45,14 @@ const App = () => {
   if (!token) {
     return (
       <>
-        <AuthPage onLogin={login} />
+        {showLanding ? (
+          <LandingPage
+            onGetStarted={() => setShowLanding(false)}
+            onLogin={() => setShowLanding(false)}
+          />
+        ) : (
+          <AuthPage onLogin={login} />
+        )}
         <ConfirmationModal
           isOpen={modalConfig.isOpen}
           onClose={handleClose}
