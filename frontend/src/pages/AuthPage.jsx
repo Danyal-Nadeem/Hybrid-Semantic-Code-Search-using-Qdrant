@@ -59,12 +59,14 @@ const AuthPage = ({ onLogin }) => {
           >
             Login
           </button>
-          <button
-            onClick={() => setIsLogin(false)}
-            className="text-sm font-black px-5 py-1.5 bg-blue-800 hover:bg-blue-700 text-white rounded-lg transition-all shadow-lg shadow-blue-900/30 active:scale-95"
-          >
-            Get Started
-          </button>
+          {isLogin && (
+            <button
+              onClick={() => setIsLogin(false)}
+              className="text-sm font-black px-5 py-1.5 bg-blue-800 hover:bg-blue-700 text-white rounded-lg transition-all shadow-lg shadow-blue-900/30 active:scale-95"
+            >
+              Get Started
+            </button>
+          )}
         </div>
       </header>
 
