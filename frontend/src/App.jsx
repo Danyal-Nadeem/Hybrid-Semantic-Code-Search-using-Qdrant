@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Hooks
 import useAuth from './hooks/useAuth';
@@ -41,6 +41,13 @@ const App = () => {
   const search = useSearch(authFetch, settings.semanticWeight);
   const ingestion = useIngestion(authFetch, activeView, requestConfirm, requestAlert);
   const profile = useProfile(authFetch, setUsername, requestAlert);
+
+  useEffect(() => {
+    if (!token) {
+      setShowLanding(true);
+      setAuthMode('login');
+    }
+  }, [token]);
 
   // Unauthenticated view
   if (!token) {
