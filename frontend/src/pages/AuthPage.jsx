@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import Icons from '../components/Icons';
 
-const AuthPage = ({ onLogin }) => {
-  const [isLogin, setIsLogin] = useState(true)
+const AuthPage = ({ onLogin, initialIsLogin = true }) => {
+  const [isLogin, setIsLogin] = useState(initialIsLogin)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')

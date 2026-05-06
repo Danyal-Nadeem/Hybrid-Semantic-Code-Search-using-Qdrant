@@ -31,6 +31,7 @@ const App = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isFAQModalOpen, setIsFAQModalOpen] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
+  const [authMode, setAuthMode] = useState('login');
 
   // Hooks
   const { modalConfig, requestConfirm, requestAlert, handleClose, handleConfirm } = useConfirm();
@@ -47,11 +48,17 @@ const App = () => {
       <>
         {showLanding ? (
           <LandingPage
-            onGetStarted={() => setShowLanding(false)}
-            onLogin={() => setShowLanding(false)}
+            onGetStarted={() => {
+              setAuthMode('signup');
+              setShowLanding(false);
+            }}
+            onLogin={() => {
+              setAuthMode('login');
+              setShowLanding(false);
+            }}
           />
         ) : (
-          <AuthPage onLogin={login} />
+          <AuthPage onLogin={login} initialIsLogin={authMode === 'login'} />
         )}
         <ConfirmationModal
           isOpen={modalConfig.isOpen}
