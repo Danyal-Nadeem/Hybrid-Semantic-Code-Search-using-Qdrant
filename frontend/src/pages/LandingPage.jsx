@@ -195,7 +195,6 @@ const LandingPage = ({ onGetStarted, onLogin }) => {
 					</div>
 				</div>
 
-				{/* Animated Scroll Down Indicator */}
 				
 			</section>
 

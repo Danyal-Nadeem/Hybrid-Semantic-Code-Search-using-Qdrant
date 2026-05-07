@@ -27,7 +27,14 @@ import SettingsView from './pages/SettingsView';
 import ProfileModal from './pages/ProfileModal';
 
 const App = () => {
-  const [activeView, setActiveView] = useState('dashboard');
+  // Get initial view from URL path
+  const getInitialView = () => {
+    const path = window.location.pathname.replace(/^\//, ''); // remove leading slash
+    const allowedViews = ['dashboard', 'search', 'analytics', 'ingestion', 'settings'];
+    return allowedViews.includes(path) ? path : 'dashboard';
+  };
+
+  const [activeView, setActiveView] = useState(getInitialView);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isFAQModalOpen, setIsFAQModalOpen] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
@@ -41,6 +48,38 @@ const App = () => {
   const search = useSearch(authFetch, settings.semanticWeight);
   const ingestion = useIngestion(authFetch, activeView, requestConfirm, requestAlert);
   const profile = useProfile(authFetch, setUsername, requestAlert);
+
+  // Sync activeView to browser URL pathname
+  useEffect(() => {
+    if (token) {
+      const path = `/${activeView}`;
+      if (window.location.pathname !== path) {
+        window.history.pushState({ view: activeView }, '', path);
+      }
+    } else {
+      if (window.location.pathname !== '/') {
+        window.history.pushState(null, '', '/');
+      }
+    }
+  }, [activeView, token]);
+
+  // Handle browser back/forward buttons (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      if (token) {
+        const path = window.location.pathname.replace(/^\//, '');
+        const allowedViews = ['dashboard', 'search', 'analytics', 'ingestion', 'settings'];
+        if (allowedViews.includes(path)) {
+          setActiveView(path);
+        } else {
+          setActiveView('dashboard');
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [token]);
 
   useEffect(() => {
     if (!token) {
