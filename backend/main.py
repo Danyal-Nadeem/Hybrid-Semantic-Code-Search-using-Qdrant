@@ -112,6 +112,11 @@ class IngestionRecordResponse(BaseModel):
 
 # Auth Security
 security = HTTPBearer()
+MIN_PASSWORD_LENGTH = int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
+
+def ensure_gemini_key():
+    if not os.getenv("GEMINI_API_KEY"):
+        raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured")
 
 async def get_current_user(auth: HTTPAuthorizationCredentials = Security(security)):
     token = auth.credentials
@@ -127,6 +132,11 @@ async def get_current_user(auth: HTTPAuthorizationCredentials = Security(securit
 # Auth Endpoints
 @app.post("/auth/signup", response_model=Token)
 async def signup(user: UserSignup, db: Session = Depends(get_db)):
+    if len(user.password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
+        )
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -171,6 +181,11 @@ async def update_profile(user_update: UserUpdate, current_user: dict = Depends(g
             raise HTTPException(status_code=400, detail="Email already in use")
         db_user.email = user_update.email
     if user_update.password:
+        if len(user_update.password) < MIN_PASSWORD_LENGTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
+            )
         db_user.hashed_password = get_password_hash(user_update.password)
         
     db.commit()
@@ -211,6 +226,7 @@ async def search(request: SearchRequest, current_user: Any = Depends(get_current
         )
 
         if request.mode == "plan":
+            ensure_gemini_key()
             timings: Dict[str, Any] = {}
             plan = await run_in_threadpool(
                 generate_change_plan, request.query, results, timings
@@ -277,6 +293,7 @@ async def search_stream(
                 )
                 return
 
+            ensure_gemini_key()
             t_prompt = time.perf_counter()
             prompt, allowed_files = build_plan_prompt(request.query, results)
             timings["prompt_build_ms"] = round(
