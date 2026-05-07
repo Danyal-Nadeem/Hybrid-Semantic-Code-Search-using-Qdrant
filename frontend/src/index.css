@@ -1,16 +1,12 @@
 @import "tailwindcss";
 
-@theme {
+:root {
   --color-brand-bg: #0b0f1a;
   --color-brand-sidebar: #111827;
   --color-brand-card: #161e2e;
   --color-brand-border: #1f2937;
   --color-brand-accent: #1e40af;
-  /* New Deep Professional Blue */
   --color-brand-accent-glow: rgba(30, 64, 175, 0.15);
-}
-
-:root {
   font-family: Inter, system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
