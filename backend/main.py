@@ -639,7 +639,7 @@ async def clear_ingestion_history(db: Session = Depends(get_db), current_user: A
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/debug-clear")
-async def debug_clear_qdrant(current_user: Any = Depends(get_current_user)):
+async def debug_clear_qdrant():
     try:
         # Fetch up to 100k points to manually delete everything but 'sample'
         res = searcher.client.scroll(
