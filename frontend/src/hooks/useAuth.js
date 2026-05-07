@@ -2,16 +2,15 @@ import { useState, useCallback } from 'react';
 
 const useAuth = () => {
   const [token, setToken] = useState(
-    localStorage.getItem('scs_token') || sessionStorage.getItem('scs_token')
+    sessionStorage.getItem('scs_token')
   );
   const [username, setUsername] = useState(
-    localStorage.getItem('scs_user') || sessionStorage.getItem('scs_user')
+    sessionStorage.getItem('scs_user')
   );
 
-  const login = useCallback((newToken, newUser, rememberMe = false) => {
-    const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem('scs_token', newToken);
-    storage.setItem('scs_user', newUser);
+  const login = useCallback((newToken, newUser) => {
+    sessionStorage.setItem('scs_token', newToken);
+    sessionStorage.setItem('scs_user', newUser);
     setToken(newToken);
     setUsername(newUser);
   }, []);
@@ -19,8 +18,6 @@ const useAuth = () => {
   const logout = useCallback(() => {
     sessionStorage.removeItem('scs_token');
     sessionStorage.removeItem('scs_user');
-    localStorage.removeItem('scs_token');
-    localStorage.removeItem('scs_user');
     setToken(null);
     setUsername(null);
   }, []);
