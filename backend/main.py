@@ -67,12 +67,35 @@ _app_settings = AppSettings(
     overfetch_multiplier=int(os.getenv("OVERFETCH_MULTIPLIER", "5")),
 )
 
-def _create_searcher(settings: AppSettings) -> CodeSearcher:
-    return CodeSearcher(
-        qdrant_url=settings.qdrant_url,
-        collection_name=settings.collection_name,
-        embedding_model=settings.embedding_model,
+def _create_searcher(settings: AppSettings, existing_searcher=None) -> CodeSearcher:
+    """Create a new CodeSearcher, reusing the existing Qdrant client when staying
+    in local mode to avoid the 'already accessed by another instance' error."""
+    is_local = not settings.qdrant_url or settings.qdrant_url.lower() == "local"
+    existing_is_local = existing_searcher is not None and (
+        not _app_settings.qdrant_url or _app_settings.qdrant_url.lower() == "local"
     )
+
+    new_searcher = CodeSearcher.__new__(CodeSearcher)
+
+    if is_local and existing_is_local and existing_searcher is not None:
+        # Reuse the open local client — Qdrant local mode only allows one connection
+        from fastembed import TextEmbedding
+        new_searcher.client = existing_searcher.client
+        new_searcher.collection_name = settings.collection_name
+        new_searcher.model = (
+            existing_searcher.model
+            if settings.embedding_model == _app_settings.embedding_model
+            else TextEmbedding(model_name=settings.embedding_model)
+        )
+    else:
+        # Remote URL or first-time init: create a fresh searcher normally
+        return CodeSearcher(
+            qdrant_url=settings.qdrant_url,
+            collection_name=settings.collection_name,
+            embedding_model=settings.embedding_model,
+        )
+
+    return new_searcher
 
 searcher = _create_searcher(_app_settings)
 
@@ -165,7 +188,7 @@ async def update_settings(new_settings: AppSettings, current_user: Any = Depends
         _app_settings.embedding_model = new_settings.embedding_model
         _app_settings.semantic_weight = new_settings.semantic_weight
         _app_settings.overfetch_multiplier = new_settings.overfetch_multiplier
-        searcher = _create_searcher(_app_settings)
+        searcher = _create_searcher(_app_settings, existing_searcher=searcher)
 
     return _app_settings
 
