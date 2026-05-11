@@ -16,6 +16,9 @@ import uuid
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
+# Import email sender
+from emailer import send_verification_email
+
 # Import Auth & DB
 import models
 from database import engine, get_db
@@ -99,11 +102,28 @@ def _create_searcher(settings: AppSettings, existing_searcher=None) -> CodeSearc
 
 searcher = _create_searcher(_app_settings)
 
+# ---------------------------------------------------------------------------
+# In-memory store for pending email verifications
+# Format: { email: { "code": int, "expires_at": float, "name": str, "password": str } }
+# ---------------------------------------------------------------------------
+_pending_verifications: Dict[str, Dict] = {}
+_pending_lock = threading.Lock()
+VERIFICATION_TTL_SECONDS = 300  # 5 minutes
+
 # Pydantic models for Auth
 class UserSignup(BaseModel):
     name: str
     email: EmailStr
     password: str
+
+class SendVerificationRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+class VerifyCodeRequest(BaseModel):
+    email: EmailStr
+    code: int
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -213,6 +233,86 @@ async def signup(user: UserSignup, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
+    access_token = create_access_token(data={"sub": str(new_user.id), "name": new_user.name})
+    return {"access_token": access_token, "token_type": "bearer", "user_name": new_user.name}
+
+
+@app.post("/auth/send-verification")
+async def send_verification(request: SendVerificationRequest, db: Session = Depends(get_db)):
+    """
+    Step 1 of email-verified signup.
+    Checks that the email is not already registered, generates a 6-digit code,
+    sends it via SMTP, and stores it (with expiry) in the pending store.
+    """
+    # Check for duplicate email
+    db_user = db.query(models.User).filter(models.User.email == request.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Send verification email
+    success, result = send_verification_email(request.email)
+    if not success:
+        raise HTTPException(
+            status_code=400, # Use 400 so the frontend displays it as a user error
+            detail=result or "Failed to send verification email. Please try again later."
+        )
+
+    # Store pending registration
+    with _pending_lock:
+        _pending_verifications[request.email] = {
+            "code": result,
+            "expires_at": time.time() + VERIFICATION_TTL_SECONDS,
+            "name": request.name,
+            "password": request.password,
+        }
+
+    return {"message": "Verification code sent. Please check your email."}
+
+
+@app.post("/auth/verify-code", response_model=Token)
+async def verify_code(request: VerifyCodeRequest, db: Session = Depends(get_db)):
+    """
+    Step 2 of email-verified signup.
+    Validates the 6-digit code and, if correct, creates the user account and returns a JWT.
+    """
+    with _pending_lock:
+        pending = _pending_verifications.get(request.email)
+
+    if not pending:
+        raise HTTPException(
+            status_code=400,
+            detail="No pending verification for this email. Please request a new code."
+        )
+
+    if time.time() > pending["expires_at"]:
+        with _pending_lock:
+            _pending_verifications.pop(request.email, None)
+        raise HTTPException(
+            status_code=400,
+            detail="Verification code has expired. Please request a new one."
+        )
+
+    if request.code != pending["code"]:
+        raise HTTPException(status_code=400, detail="Invalid verification code.")
+
+    # Code is valid — remove pending entry and create user
+    with _pending_lock:
+        _pending_verifications.pop(request.email, None)
+
+    # Guard against race-condition double-registration
+    db_user = db.query(models.User).filter(models.User.email == request.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    new_user = models.User(
+        name=pending["name"],
+        email=request.email,
+        hashed_password=get_password_hash(pending["password"]),
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
     access_token = create_access_token(data={"sub": str(new_user.id), "name": new_user.name})
     return {"access_token": access_token, "token_type": "bearer", "user_name": new_user.name}
 
